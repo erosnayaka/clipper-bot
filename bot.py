@@ -1395,6 +1395,10 @@ def _arsip_text_kb():
     if any(not q for _, _, q in items):
         kb.append([InlineKeyboardButton("\U0001f9f9 Hapus semua (belum diupload)",
                                        callback_data="del:all")])
+    if n_queued >= 2:
+        kb.append([InlineKeyboardButton(
+            f"❌ Batalkan semua upload ({n_queued})",
+            callback_data="qcancel:all")])
     return txt, (InlineKeyboardMarkup(kb) if kb else None)
 
 
@@ -1501,6 +1505,35 @@ async def on_qcancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
               [InlineKeyboardButton("Batal", callback_data="qcancel:cancel")]]
         try:
             await query.edit_message_reply_markup(InlineKeyboardMarkup(kb))
+        except Exception:
+            pass
+        return
+
+    # eksekusi batalkan SEMUA
+    if target == "all":
+        cancelled, locked = 0, 0
+        try:
+            qfiles = [f for f in os.listdir(TT_QUEUE) if f.endswith(".json")]
+        except OSError:
+            qfiles = []
+        for qf in qfiles:
+            jid = qf[:-5]
+            if os.path.exists(os.path.join(TT_QUEUE, f"{jid}.lock")):
+                locked += 1
+                continue
+            try:
+                os.remove(os.path.join(TT_QUEUE, qf))
+                cancelled += 1
+            except OSError:
+                pass
+        log.info("arsip batalkan SEMUA antrean TikTok: %d dibatalkan, %d terkunci oleh %s",
+                 cancelled, locked, update.effective_user.id)
+        await rerender()
+        msg = f"✅ {cancelled} upload dibatalkan, klip tetap di arsip."
+        if locked:
+            msg += f" ({locked} lagi proses upload, nggak dibatalin.)"
+        try:
+            await query.answer(msg, show_alert=True)
         except Exception:
             pass
         return
