@@ -584,6 +584,20 @@ async def on_gcap_mode(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     mode = query.data.split(":", 1)[1]
     n = len(st["parts"])
+    if mode == "bulk":
+        # caption otomatis semua (perilaku lama "Upload semua")
+        nq = 0
+        for cjob in st["parts"]:
+            if _enqueue_tiktok_job(cjob,
+                                   build_auto_caption(_read_pending_meta(cjob))[:2200],
+                                   update.effective_chat.id,
+                                   update.effective_user.id):
+                nq += 1
+        context.user_data.pop("gcap", None)
+        await query.message.reply_text(
+            f"✅ {nq} klip masuk antrean upload TikTok (caption otomatis). "
+            "Gue kabarin tiap udah keposting.")
+        return
     if mode == "auto":
         st["mode"] = "auto"
         st["step"] = "title"
@@ -1706,7 +1720,7 @@ async def on_jeda(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def on_upall(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Upload semua: antrekan semua klip arsip yang belum antre, caption otomatis."""
+    """Upload semua: pilih mode caption dulu (reuse alur gcap)."""
     query = update.callback_query
     await query.answer()
     if not is_allowed(update):
@@ -1715,31 +1729,19 @@ async def on_upall(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not items:
         await query.message.reply_text("Udah nggak ada yang bisa diupload.")
         return
-    n = 0
-    for jid, meta in items:
-        if os.path.exists(os.path.join(TT_QUEUE, f"{jid}.json")):
-            continue
-        caption = build_auto_caption(meta)
-        job = {
-            "job_id": jid,
-            "video": os.path.join(TT_PENDING, f"{jid}.mp4"),
-            "caption": caption,
-            "chat_id": update.effective_chat.id,
-            "user_id": update.effective_user.id,
-            "privacy": "public",
-            "attempts": 0,
-            "created": time.time(),
-        }
-        with open(os.path.join(TT_QUEUE, f"{jid}.json"), "w") as f:
-            json.dump(job, f)
-        n += 1
-    try:
-        await query.edit_message_text(
-            f"✅ {n} klip masuk antrean upload TikTok (caption otomatis). "
-            "Gue kabarin tiap udah keposting.")
-    except Exception:
-        await query.message.reply_text(
-            f"✅ {n} klip masuk antrean upload TikTok (caption otomatis).")
+    parts = [jid for jid, meta in items]
+    context.user_data["gcap"] = {"parts": parts, "idx": 0, "mode": None,
+                                 "done": 0}
+    kb = [[InlineKeyboardButton("🔢 Judul + nomor otomatis",
+                               callback_data="gcapmode:auto")],
+          [InlineKeyboardButton("✏️ Isi caption per klip",
+                               callback_data="gcapmode:manual")],
+          [InlineKeyboardButton("✅ Caption otomatis semua",
+                               callback_data="gcapmode:bulk")]]
+    await query.message.reply_text(
+        f"⬆️ Upload semua: {len(parts)} klip.\n"
+        "Mau caption-nya gimana?",
+        reply_markup=InlineKeyboardMarkup(kb))
 
 
 def main():
