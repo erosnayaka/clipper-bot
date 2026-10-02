@@ -1,0 +1,23 @@
+# Token & rahasia — JANGAN PERNAH di-commit
+.bot_token
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Data runtime bot (dibuat otomatis saat jalan)
+tiktok_queue/
+tiktok_pending/
+tiktok_failed/
+viral_queue/
+viral_candidates/
+viral_failed/
+cloud_jobs/
+gdrive_out/
+gdrive_tmp/
+state/
+hashtag_preset.json
+*.log
+bot.log

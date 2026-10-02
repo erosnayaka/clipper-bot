@@ -1,0 +1,4 @@
+python-telegram-bot>=21
+yt-dlp>=2025.1.1
+mega.py>=1.0.8
+pycryptodome>=3.20
